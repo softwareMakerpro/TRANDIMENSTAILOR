@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trendy Men's Dishdasha Tailor</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1A237E">
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('service-worker.js');
+}
+</script>
+<style>
+body {font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f5f5f5;}
+header {background: #1A237E; color: #fff; padding: 18px 12px; text-align: center; line-height: 1.4;}
+header h2 {margin: 0; font-size: 20px; font-weight: 600;}
+header h1 {margin: 6px 0 0 0; font-size: 24px; font-weight: 800; letter-spacing: 0.6px;}
+header p {margin: 8px 0 0 0; font-size: 13px; opacity: 0.95;}
+.container {max-width: 900px; margin: 20px auto; background: #fff; padding: 15px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);}
+input {width: 100%; padding: 10px; margin: 8px 0; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box;}
+button {padding: 10px 15px; margin: 6px 4px 0 0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;}
+.save-btn {background: #007bff; color: #fff; width: 100%;}
+.search-btn {background: #28a745; color: #fff;}
+.reset-btn {background: #6c757d; color: #fff;}
+.export-btn {background: #17a2b8; color: #fff;}
+.import-btn {background: #ffc107; color: #000;}
+table {width: 100%; border-collapse: collapse; margin-top: 12px;}
+th, td {border: 1px solid #ddd; padding: 8px; text-align: left;}
+th {background: #1A237E; color: #fff;}
+@media (max-width: 520px) {
+  header h1 {font-size: 18px;}
+  header h2 {font-size: 16px;}
+  .container {margin: 12px; padding: 12px;}
+}
+</style>
+</head>
+<body>
+<header>
+  <h2>خياط دشداشه ترند للرجال</h2>
+  <h1>TRENDY MEN'S DISHDASHA TAILOR</h1>
+  <p>Kuwait - Mubarak Al-Kabeer Street - Blocks - Al-Ardi Building - No. 8 - Floor -2 Shop No: 12<br>📞 51660263</p>
+</header>
+
+<div class="container">
+  <input id="name" placeholder="Customer Name">
+  <input id="mobile" placeholder="Mobile Number">
+  <input id="serial" placeholder="Book Number">
+  <button class="save-btn" onclick="saveRecord()">Save Record</button>
+
+  <input id="searchInput" placeholder="Search by name, mobile, or book number">
+  <button class="search-btn" onclick="searchRecords()">Search</button>
+  <button class="reset-btn" onclick="renderTable()">Reset</button>
+  <button class="export-btn" onclick="exportBackup()">Export</button>
+  <input type="file" id="importFile" accept="application/json" style="display:none;" onchange="importBackup(event)">
+  <button class="import-btn" onclick="document.getElementById('importFile').click()">Import</button>
+
+  <p id="resultsInfo"></p>
+  <table>
+    <thead><tr><th>#</th><th>Name</th><th>Mobile</th><th>Book No.</th><th>Action</th></tr></thead>
+    <tbody id="recordsTable"></tbody>
+  </table>
+</div>
+
+<script>
+let db, editingId = null;
+const initialData = [
+  { name: "ABC", mobile: "123", serial: "001" },
+  { name: "DEF", mobile: "456", serial: "002" },
+  { name: "GHI", mobile: "789", serial: "003" },
+  { name: "JKL", mobile: "321", serial: "004" },
+  { name: "MNO", mobile: "654", serial: "005" }
+];
+
+function openDB() {
+  const req = indexedDB.open("BABU_DB", 1);
+  req.onupgradeneeded = e => {
+    db = e.target.result;
+    const store = db.createObjectStore("customers", { keyPath: "id", autoIncrement: true });
+    store.createIndex("serial", "serial", { unique: false });
+    initialData.forEach(r => store.add(r));
+  };
+  req.onsuccess = e => { db = e.target.result; renderTable(); };
+}
+
+function saveRecord() {
+  const name = document.getElementById("name").value.trim();
+  const mobile = document.getElementById("mobile").value.trim();
+  const serial = document.getElementById("serial").value.trim();
+  if (!name || !mobile || !serial) { alert("Fill all fields"); return; }
+  const tx = db.transaction("customers", "readwrite");
+  const store = tx.objectStore("customers");
+  if (editingId) { store.put({ id: editingId, name, mobile, serial }); editingId=null; }
+  else { store.add({ name, mobile, serial }); }
+  tx.oncomplete = () => { ["name","mobile","serial"].forEach(i => document.getElementById(i).value=""); renderTable(); };
+}
+
+function renderTable(query="") {
+  const tbody = document.getElementById("recordsTable"); tbody.innerHTML="";
+  const tx = db.transaction("customers", "readonly");
+  const store = tx.objectStore("customers");
+  let i=0;
+  store.openCursor().onsuccess=e=>{
+    const c=e.target.result;
+    if(c){
+      const r=c.value;
+      if(query && !(r.name.toLowerCase().includes(query)||r.mobile.includes(query)||r.serial.includes(query))){c.continue();return;}
+      const tr=document.createElement("tr");
+      tr.innerHTML=`<td>${++i}</td><td>${r.name}</td><td>${r.mobile}</td><td>${r.serial}</td><td><button onclick="editRecord(${r.id})">Edit</button></td>`;
+      tbody.appendChild(tr);c.continue();
+    }
+    document.getElementById("resultsInfo").innerText=i+" record(s)";
+  };
+}
+function editRecord(id){
+  const tx=db.transaction("customers","readonly");
+  const store=tx.objectStore("customers");
+  const req=store.get(id);
+  req.onsuccess=()=>{const r=req.result;if(r){["name","mobile","serial"].forEach(f=>document.getElementById(f).value=r[f]);editingId=id;}};
+}
+function searchRecords(){const q=document.getElementById("searchInput").value.trim().toLowerCase();renderTable(q);}
+function exportBackup(){
+  const tx=db.transaction("customers","readonly");
+  const store=tx.objectStore("customers");
+  const items=[];
+  store.openCursor().onsuccess=e=>{
+    const c=e.target.result;
+    if(c){items.push(c.value);c.continue();}
+    else{
+      const blob=new Blob([JSON.stringify(items,null,2)],{type:"application/json"});
+      const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="babu_backup.json";a.click();
+    }
+  };
+}
+async function importBackup(e){
+  const file=e.target.files[0];if(!file)return;
+  const text=await file.text();const items=JSON.parse(text);
+  const tx=db.transaction("customers","readwrite");
+  const store=tx.objectStore("customers");
+  items.forEach(r=>{if(r.id)delete r.id;store.add(r);});
+  tx.oncomplete=()=>renderTable();
+}
+openDB();
+</script>
+</body>
+</html>
